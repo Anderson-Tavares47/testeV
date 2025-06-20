@@ -191,6 +191,7 @@ router.post('/login', async (req, res) => {
   try {
     const emailBusca = email.trim().toLowerCase();
     let tipo = 'usuario';
+    console.log(emailBusca, 'email formatado')
 
     // 1. Tenta encontrar como USUÁRIO (email - manual case-insensitive)
     let userList = await prisma.usuarios.findMany({
@@ -212,8 +213,11 @@ router.post('/login', async (req, res) => {
         updatedAt: true
       }
     });
+    console.log('passou por busca de usuarios')
 
     let user = userList.find(u => u.email.trim().toLowerCase() === emailBusca);
+
+    console.log(user, 'usuario antes de solicitantes')
 
     // 2. Se não achou como usuário, tenta como SOLICITANTE
     if (!user) {
@@ -234,6 +238,8 @@ router.post('/login', async (req, res) => {
       tipo = 'solicitante';
     }
 
+    console.log( 'depois da busca de solicitantes')
+
     // 3. Se ainda não encontrou
     if (!user) {
       return res.status(404).json({
@@ -252,6 +258,9 @@ router.post('/login', async (req, res) => {
 
     // 5. Compara a senha
     const senhaValida = await bcrypt.compare(senha, user.senha);
+
+    console.log(senhaValida, 'validação da senha senhaValida')
+    
     if (!senhaValida) {
       return res.status(401).json({
         error: 'Credenciais inválidas',
@@ -274,6 +283,8 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET || SECRET,
       { expiresIn: '1d' }
     );
+
+    console.log(token, 'token do res')
 
     // 8. Retorna sucesso
     return res.json({
