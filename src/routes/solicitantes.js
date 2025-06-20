@@ -189,14 +189,14 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const emailNormalizado = email.trim();
+    const emailBusca = email.trim().toLowerCase();
+    let tipo = 'usuario';
 
-    // 1. Tenta como USUÁRIO (email - case insensitive)
-    let user = await prisma.usuarios.findFirst({
+    // 1. Tenta encontrar como USUÁRIO (email - manual case-insensitive)
+    let userList = await prisma.usuarios.findMany({
       where: {
         email: {
-          contains: emailNormalizado,
-          mode: 'insensitive'
+          contains: emailBusca
         }
       },
       select: {
@@ -213,17 +213,16 @@ router.post('/login', async (req, res) => {
       }
     });
 
-    let tipo = 'usuario';
+    let user = userList.find(u => u.email.trim().toLowerCase() === emailBusca);
 
-    // 2. Se não achou, tenta como SOLICITANTE (email ou CPF)
+    // 2. Se não achou como usuário, tenta como SOLICITANTE
     if (!user) {
       user = await prisma.solicitantes_unicos.findFirst({
         where: {
           OR: [
             {
               email: {
-                contains: emailNormalizado,
-                mode: 'insensitive'
+                contains: emailBusca
               }
             },
             {
@@ -235,7 +234,7 @@ router.post('/login', async (req, res) => {
       tipo = 'solicitante';
     }
 
-    // 3. Nenhum usuário encontrado
+    // 3. Se ainda não encontrou
     if (!user) {
       return res.status(404).json({
         error: 'Credenciais inválidas',
@@ -294,6 +293,7 @@ router.post('/login', async (req, res) => {
     });
   }
 });
+
 
 
 // Listar todos os solicitantes únicos
