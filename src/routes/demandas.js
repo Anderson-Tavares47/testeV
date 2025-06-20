@@ -7,6 +7,7 @@ const authMiddleware = require('../../middlewares/auth');
 router.use(authMiddleware);
 
 // Criar
+
 // router.post('/', async (req, res) => {
 //   try {
 //     const {
@@ -17,8 +18,6 @@ router.use(authMiddleware);
 //       dataSolicitacao,
 //       dataTermino,
 //       solicitant,
-//       nomeCompleto,
-//       cpf,
 //       reincidencia,
 //       meioSolicitacao,
 //       anexarDocumentos,
@@ -29,44 +28,67 @@ router.use(authMiddleware);
 //       solicitantId
 //     } = req.body;
 
-//     // Verificar se o solicitante existe na tabela correta
+//     console.log(req.body, '===============')
+
+//     // 1. Verificar se o solicitante existe
 //     const solicitanteExistente = await prisma.solicitantes_unicos.findUnique({
 //       where: { id: parseInt(solicitantId) }
 //     });
 
 //     if (!solicitanteExistente) {
-//       return res.status(400).json({ error: 'Solicitante não encontrado' });
+//       return res.status(400).json({ 
+//         error: 'Solicitante não encontrado',
+//         details: `Nenhum solicitante encontrado com o ID: ${solicitantId}`
+//       });
 //     }
 
-//     // Criar a demanda
+//     // 2. Mapear valores para os enums corretos
+//     const reincidenciaEnum = reincidencia === 'N_o' ? 'N_o' : 'Sim';
+//     const meioSolicitacaoEnum = meioSolicitacao === 'WhatsApp' ? 'WhatsApp' : 'Presencial';
+//     const statusEnum = status === 'Aguardando_Retorno' ? 'Aguardando_Retorno' :
+//                       status === 'Conclu_da' ? 'Conclu_da' : 
+//                       status === 'Cancelada' ? 'Cancelada' : 'Pendente';
+
+//     // 3. Criar a demanda
 //     const novaDemanda = await prisma.demandas.create({
 //       data: {
 //         protocolo,
 //         setor,
 //         prioridade,
-//         status,
+//         status: statusEnum,
 //         dataSolicitacao: dataSolicitacao ? new Date(dataSolicitacao) : new Date(),
 //         dataTermino: dataTermino ? new Date(dataTermino) : null,
 //         solicitant,
-//         nomeCompleto,
-//         cpf,
-//         reincidencia,
-//         meioSolicitacao,
+//         reincidencia: reincidenciaEnum,
+//         meioSolicitacao: meioSolicitacaoEnum,
 //         anexarDocumentos,
 //         envioCobranca1,
 //         envioCobranca2,
 //         envioParaResponsavel,
 //         observacoes,
-//         solicitanteId: parseInt(solicitantId) // usando o nome correto do campo
+//         solicitanteId: parseInt(solicitantId)
 //       }
 //     });
 
 //     res.json(novaDemanda);
 //   } catch (error) {
-//     console.error('Erro detalhado:', error);
+//     console.error('Erro detalhado:', {
+//       message: error.message,
+//       code: error.code,
+//       meta: error.meta
+//     });
+    
+//     let errorMessage = 'Erro ao criar demanda';
+//     if (error.code === 'P2003') {
+//       errorMessage = 'Erro de relacionamento: O solicitante informado não existe';
+//     } else if (error.code === 'P2002') {
+//       errorMessage = 'Violação de restrição única: Protocolo já existe';
+//     }
+
 //     res.status(500).json({ 
-//       error: 'Erro ao criar demanda',
-//       detalhe: error.message
+//       error: errorMessage,
+//       details: error.message,
+//       code: error.code
 //     });
 //   }
 // });
@@ -93,15 +115,20 @@ router.post('/', async (req, res) => {
 
     console.log(req.body, '===============')
 
-    // 1. Verificar se o solicitante existe
-    const solicitanteExistente = await prisma.solicitantes_unicos.findUnique({
-      where: { id: parseInt(solicitantId) }
-    });
+    // 1. Verificar se o solicitante existe em qualquer das tabelas
+    const [solicitanteExistente, usuarioExistente] = await Promise.all([
+      prisma.solicitantes_unicos.findUnique({
+        where: { id: parseInt(solicitantId) }
+      }),
+      prisma.usuarios.findUnique({
+        where: { id: parseInt(solicitantId) }
+      })
+    ]);
 
-    if (!solicitanteExistente) {
+    if (!solicitanteExistente && !usuarioExistente) {
       return res.status(400).json({ 
         error: 'Solicitante não encontrado',
-        details: `Nenhum solicitante encontrado com o ID: ${solicitantId}`
+        details: `Nenhum registro encontrado com o ID: ${solicitantId} (verificado em solicitantes_unicos e usuarios)`
       });
     }
 
@@ -121,7 +148,7 @@ router.post('/', async (req, res) => {
         status: statusEnum,
         dataSolicitacao: dataSolicitacao ? new Date(dataSolicitacao) : new Date(),
         dataTermino: dataTermino ? new Date(dataTermino) : null,
-        solicitant,
+        solicitant: usuarioExistente ? usuarioExistente.nome : solicitant, // Usa o nome do usuário se for admin
         reincidencia: reincidenciaEnum,
         meioSolicitacao: meioSolicitacaoEnum,
         anexarDocumentos,
@@ -155,6 +182,7 @@ router.post('/', async (req, res) => {
     });
   }
 });
+
 // Buscar próximo protocolo
 router.get('/proximo-protocolo', async (req, res) => {
   const ultima = await prisma.demandas.findFirst({
