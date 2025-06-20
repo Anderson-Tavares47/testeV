@@ -7,6 +7,9 @@ const prisma = new PrismaClient();
 const saltRounds = 10;
 const jwt = require('jsonwebtoken')
 
+const authMiddleware = require('../../middlewares/auth');
+router.use(authMiddleware);
+
 const SECRET = process.env.JWT_SECRET || 'PjTeste'
 
 // Registrar novo solicitante
