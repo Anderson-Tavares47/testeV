@@ -258,8 +258,8 @@ router.put('/:id', async (req, res) => {
       dataSolicitacao,
       dataTermino,
       solicitant,
-      nomeCompleto,
-      cpf,
+      nomeCompleto, // usado só se quiser atualizar solicitantes
+      cpf,          // idem
       reincidencia,
       meioSolicitacao,
       anexarDocumentos,
@@ -270,6 +270,7 @@ router.put('/:id', async (req, res) => {
       solicitantId
     } = req.body;
 
+    // Atualiza a demanda
     const demandaAtualizada = await prisma.demandas.update({
       where: { id: demandaId },
       data: {
@@ -280,8 +281,6 @@ router.put('/:id', async (req, res) => {
         dataSolicitacao: new Date(dataSolicitacao),
         dataTermino: dataTermino ? new Date(dataTermino) : null,
         solicitant,
-        nomeCompleto,
-        cpf,
         reincidencia,
         meioSolicitacao,
         anexarDocumentos,
@@ -289,9 +288,20 @@ router.put('/:id', async (req, res) => {
         envioCobranca2,
         envioParaResponsavel,
         observacoes,
-        solicitanteId: solicitantId
+        solicitanteId: Number(solicitantId)
       }
     });
+
+    // Opcional: Atualiza os dados do solicitante, se enviados
+    if (nomeCompleto || cpf) {
+      await prisma.solicitantes.update({
+        where: { id: Number(solicitantId) },
+        data: {
+          ...(nomeCompleto && { nomeCompleto }),
+          ...(cpf && { cpf })
+        }
+      });
+    }
 
     res.json(demandaAtualizada);
   } catch (error) {
@@ -299,6 +309,7 @@ router.put('/:id', async (req, res) => {
     res.status(500).json({ error: 'Erro ao editar demanda' });
   }
 });
+
 
 // Deletar
 router.delete('/:id', async (req, res) => {
