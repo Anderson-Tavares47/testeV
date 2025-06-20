@@ -119,6 +119,7 @@ router.get('/', async (req, res) => {
     const lista = await prisma.demandas.findMany({
       where,
       include: { solicitantes: true },
+      orderBy: { dataSolicitacao: 'desc' } // <-- Ordena pela data mais recente
     });
 
     console.log(id ? `Filtrando por solicitanteId: ${id}` : 'Buscando todas as demandas');
@@ -129,6 +130,7 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: 'Erro ao buscar demandas' });
   }
 });
+
 
 
 // Buscar por ID
