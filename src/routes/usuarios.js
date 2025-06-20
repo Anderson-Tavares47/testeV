@@ -3,6 +3,10 @@ const { PrismaClient } = require('@prisma/client');
 const router = express.Router();
 const prisma = new PrismaClient();
 const bcrypt = require('bcrypt');
+
+const authMiddleware = require('../../middlewares/auth');
+router.use(authMiddleware);
+
 const saltRounds = 10;
 
 // CRUD igual ao de solicitantes
