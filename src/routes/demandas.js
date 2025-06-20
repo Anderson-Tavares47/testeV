@@ -56,7 +56,7 @@ router.post('/', async (req, res) => {
         setor,
         prioridade,
         status: statusEnum,
-        dataSolicitacao: dataSolicitacao ? new Date(dataSolicitacao) : new Date(),
+        dataSolicitacao: dataSolicitacao ? new Date(new Date(dataSolicitacao).setDate(new Date(dataSolicitacao).getDate() + 1)) : new Date(),
         dataTermino: dataTermino ? new Date(dataTermino) : null,
         solicitant,
         reincidencia: reincidenciaEnum,
