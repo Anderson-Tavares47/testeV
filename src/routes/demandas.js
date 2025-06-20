@@ -243,11 +243,61 @@ router.get('/:id', async (req, res) => {
 
 // Atualizar
 router.put('/:id', async (req, res) => {
-  const item = await prisma.demandas.update({
-    where: { id: parseInt(req.params.id) },
-    data: req.body
-  });
-  res.json(item);
+  try {
+    const demandaId = parseInt(req.params.id, 10);
+
+    if (isNaN(demandaId)) {
+      return res.status(400).json({ error: 'ID inválido.' });
+    }
+
+    const {
+      protocolo,
+      setor,
+      prioridade,
+      status,
+      dataSolicitacao,
+      dataTermino,
+      solicitant,
+      nomeCompleto,
+      cpf,
+      reincidencia,
+      meioSolicitacao,
+      anexarDocumentos,
+      envioCobranca1,
+      envioCobranca2,
+      envioParaResponsavel,
+      observacoes,
+      solicitantId
+    } = req.body;
+
+    const demandaAtualizada = await prisma.demandas.update({
+      where: { id: demandaId },
+      data: {
+        protocolo,
+        setor,
+        prioridade,
+        status,
+        dataSolicitacao: new Date(dataSolicitacao),
+        dataTermino: dataTermino ? new Date(dataTermino) : null,
+        solicitant,
+        nomeCompleto,
+        cpf,
+        reincidencia,
+        meioSolicitacao,
+        anexarDocumentos,
+        envioCobranca1,
+        envioCobranca2,
+        envioParaResponsavel,
+        observacoes,
+        solicitanteId: solicitantId
+      }
+    });
+
+    res.json(demandaAtualizada);
+  } catch (error) {
+    console.error('Erro ao editar demanda:', error);
+    res.status(500).json({ error: 'Erro ao editar demanda' });
+  }
 });
 
 // Deletar
