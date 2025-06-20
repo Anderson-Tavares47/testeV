@@ -258,8 +258,8 @@ router.put('/:id', async (req, res) => {
       dataSolicitacao,
       dataTermino,
       solicitant,
-      nomeCompleto, // usado só se quiser atualizar solicitantes
-      cpf,          // idem
+      nomeCompleto,
+      cpf,
       reincidencia,
       meioSolicitacao,
       anexarDocumentos,
@@ -270,7 +270,12 @@ router.put('/:id', async (req, res) => {
       solicitantId
     } = req.body;
 
-    // Atualiza a demanda
+    // Validação de solicitantId
+    const solicitanteIdParsed = Number(solicitantId);
+    if (isNaN(solicitanteIdParsed)) {
+      return res.status(400).json({ error: 'SolicitanteId inválido' });
+    }
+
     const demandaAtualizada = await prisma.demandas.update({
       where: { id: demandaId },
       data: {
@@ -288,14 +293,16 @@ router.put('/:id', async (req, res) => {
         envioCobranca2,
         envioParaResponsavel,
         observacoes,
-        solicitanteId: Number(solicitantId)
+        solicitantes: {
+          connect: { id: solicitanteIdParsed }
+        }
       }
     });
 
-    // Opcional: Atualiza os dados do solicitante, se enviados
+    // Atualização opcional do solicitante
     if (nomeCompleto || cpf) {
       await prisma.solicitantes.update({
-        where: { id: Number(solicitantId) },
+        where: { id: solicitanteIdParsed },
         data: {
           ...(nomeCompleto && { nomeCompleto }),
           ...(cpf && { cpf })
