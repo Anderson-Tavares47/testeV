@@ -195,7 +195,7 @@ router.post('/login', async (req, res) => {
     let user = await prisma.usuarios.findFirst({
       where: {
         email: {
-          equals: emailNormalizado,
+          contains: emailNormalizado,
           mode: 'insensitive'
         }
       },
@@ -222,7 +222,7 @@ router.post('/login', async (req, res) => {
           OR: [
             {
               email: {
-                equals: emailNormalizado,
+                contains: emailNormalizado,
                 mode: 'insensitive'
               }
             },
