@@ -190,13 +190,21 @@ router.post('/login', async (req, res) => {
 
   try {
     const emailBusca = email.trim().toLowerCase();
+    const isEmail = email.includes('@');
     const cpfLimpo = email.replace(/\D/g, '');
+
     let tipo = 'usuario';
+    let user = null;
 
-    console.log(`[LOGIN] Email recebido formatado: ${emailBusca}`);
+    console.log('[LOGIN] Email recebido formatado:', emailBusca);
 
-    // 1. Buscar todos os usuários (como fallback de case-insensitive)
-    const userList = await prisma.usuarios.findMany({
+    // 1. Buscar como USUÁRIO
+    const usuarios = await prisma.usuarios.findMany({
+      where: {
+        email: {
+          contains: emailBusca
+        }
+      },
       select: {
         id: true,
         nome: true,
@@ -211,53 +219,66 @@ router.post('/login', async (req, res) => {
       }
     });
 
-    console.log(`[LOGIN] Usuários encontrados (potenciais): ${userList.length}`);
+    console.log(`[LOGIN] Usuários encontrados (potenciais): ${usuarios.length}`);
 
-    // 2. Filtra manualmente (case-insensitive)
-    let user = userList.find(u =>
-      u.email?.trim().toLowerCase() === emailBusca
+    user = usuarios.find(u => 
+      u.email?.trim().toLowerCase() === emailBusca &&
+      !!u.senha
     );
 
     if (user) {
-      console.log(`[LOGIN] Usuário encontrado como usuário: ${user.email}`);
-    } else {
-      console.log(`[LOGIN] Tentando login como solicitante...`);
+      console.log('[LOGIN] Usuário encontrado como usuario:', user.email);
+    }
 
-      const solicitanteList = await prisma.solicitantes_unicos.findMany();
-
-      console.log(`[LOGIN] Solicitantes encontrados (potenciais): ${solicitanteList.length}`);
-
-      user = solicitanteList.find(s =>
-        s.email?.trim().toLowerCase() === emailBusca ||
-        s.cpf?.replace(/\D/g, '') === cpfLimpo
-      );
-
+    // 2. Buscar como SOLICITANTE, se não achou como usuário
+    if (!user) {
       tipo = 'solicitante';
 
+      let solicitantesList = [];
+
+      if (isEmail) {
+        solicitantesList = await prisma.solicitantes_unicos.findMany({
+          where: {
+            email: {
+              contains: emailBusca
+            }
+          }
+        });
+      } else {
+        solicitantesList = await prisma.solicitantes_unicos.findMany({
+          where: {
+            cpf: cpfLimpo
+          }
+        });
+      }
+
+      console.log(`[LOGIN] Solicitantes encontrados (potenciais): ${solicitantesList.length}`);
+
+      user = solicitantesList.find(s =>
+        (
+          s.email?.trim().toLowerCase() === emailBusca ||
+          s.cpf?.replace(/\D/g, '') === cpfLimpo
+        ) &&
+        !!s.senha
+      );
+
       if (user) {
-        console.log(`[LOGIN] Usuário encontrado como solicitante: ${user.email || user.cpf}`);
+        console.log('[LOGIN] Usuário encontrado como solicitante:', user.email || user.cpf);
       }
     }
 
+    // 3. Se ainda não encontrou nenhum usuário com senha
     if (!user) {
-      console.log('[LOGIN] Nenhum usuário encontrado após verificação completa.');
-      return res.status(404).json({
-        error: 'Credenciais inválidas',
-        message: 'Nenhuma conta encontrada com este e-mail/CPF'
-      });
-    }
-
-    if (!user.senha) {
-      console.log('[LOGIN] Usuário encontrado, mas sem senha definida.');
+      console.log('[LOGIN] Nenhum usuário com senha válida encontrado');
       return res.status(401).json({
-        error: 'Configuração incompleta',
-        message: 'Este usuário não possui senha definida'
+        error: 'Credenciais inválidas',
+        message: 'E-mail/CPF ou senha incorretos ou conta sem senha definida'
       });
     }
 
+    // 4. Valida a senha
     const senhaValida = await bcrypt.compare(senha, user.senha);
-
-    console.log(`[LOGIN] Senha válida? ${senhaValida}`);
+    console.log('[LOGIN] Senha válida?', senhaValida);
 
     if (!senhaValida) {
       return res.status(401).json({
@@ -266,8 +287,8 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // 5. Gera token
     const { senha: _, ...userSemSenha } = user;
-
     const token = jwt.sign(
       {
         id: user.id,
@@ -276,11 +297,11 @@ router.post('/login', async (req, res) => {
         adm: user.adm || false,
         tipo
       },
-      SECRET,
+      process.env.JWT_SECRET || SECRET,
       { expiresIn: '1d' }
     );
 
-    console.log(`[LOGIN] Login bem-sucedido para: ${user.email || user.cpf}`);
+    console.log('[LOGIN] Login realizado com sucesso! Tipo:', tipo);
 
     return res.json({
       success: true,
@@ -291,7 +312,7 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[LOGIN] Erro inesperado:', error);
+    console.error('[LOGIN] Erro no login:', error);
     return res.status(500).json({
       error: 'Erro no servidor',
       message: 'Ocorreu um erro durante o login',
@@ -299,6 +320,7 @@ router.post('/login', async (req, res) => {
     });
   }
 });
+
 
 
 
