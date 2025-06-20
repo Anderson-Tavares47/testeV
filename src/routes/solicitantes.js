@@ -65,63 +65,141 @@ router.post('/register', async (req, res) => {
 
 
 
-// Login
-// router.post('/login', async (req, res) => {
-//   const { email, senha } = req.body
 
+// router.post('/login', async (req, res) => {
+//   const { email, senha } = req.body;
+
+//   // Validação dos campos de entrada
 //   if (!email || !senha) {
-//     return res.status(400).json({ error: 'E-mail ou CPF e senha são obrigatórios' })
+//     return res.status(400).json({ 
+//       error: 'Credenciais obrigatórias',
+//       message: 'E-mail/CPF e senha são obrigatórios para login' 
+//     });
 //   }
 
 //   try {
-//     const solicitante = await prisma.solicitantes_unicos.findFirst({
-//       where: {
-//         OR: [{ email }, { cpf: email }]
+//     // 1. Primeiro tenta encontrar como usuário (apenas por email)
+//     let user = await prisma.usuarios.findUnique({
+//       where: { 
+//         email: email.toLowerCase().trim() 
+//       },
+//       select: { // Adicione esta parte
+//         id: true,
+//         nome: true,
+//         email: true,
+//         senha: true,
+//         empresa: true,
+//         rule: true,
+//         setorId: true,
+//         adm: true, // Garante que o campo será retornado
+//         createdAt: true,
+//         updatedAt: true
 //       }
-//     })
+//     });
 
-//     if (!solicitante || !solicitante.senha) {
-//       return res.status(404).json({ error: 'Solicitante não encontrado' })
+//     console.log(user, 'user')
+
+//     let tipo = 'usuario';
+
+//     // 2. Se não encontrou como usuário, tenta como solicitante (por email ou CPF)
+//     if (!user) {
+//       user = await prisma.solicitantes_unicos.findFirst({
+//         where: {
+//           OR: [
+//             { email: email.toLowerCase().trim() },
+//             { cpf: email.replace(/\D/g, '') } // Remove não-números do CPF
+//           ]
+//         }
+//       });
+//       tipo = 'solicitante';
 //     }
 
-//     const senhaOk = await bcrypt.compare(senha, solicitante.senha)
-
-//     if (!senhaOk) {
-//       return res.status(401).json({ error: 'Senha incorreta' })
+//     // 3. Se não encontrou em nenhuma tabela
+//     if (!user) {
+//       return res.status(404).json({ 
+//         error: 'Credenciais inválidas',
+//         message: 'Nenhuma conta encontrada com este e-mail/CPF' 
+//       });
 //     }
 
-//     const token = jwt.sign( { id: solicitante.id, cpf: solicitante.cpf, adm: solicitante.adm }, SECRET, {
-//       expiresIn: '1d'
-//     })
+//     // 4. Verifica se a senha existe (para casos onde o usuário pode não ter senha)
+//     if (!user.senha) {
+//       return res.status(401).json({ 
+//         error: 'Configuração incompleta',
+//         message: 'Este usuário não possui senha definida' 
+//       });
+//     }
 
+//     // 5. Compara a senha
+//     const senhaValida = await bcrypt.compare(senha, user.senha);
+//     if (!senhaValida) {
+//       return res.status(401).json({ 
+//         error: 'Credenciais inválidas',
+//         message: 'Senha incorreta' 
+//       });
+//     }
+
+//     console.log(user, 'user aqui')
+
+//     // 6. Remove a senha do objeto de usuário antes de retornar
+//     const { senha: _, ...userSemSenha } = user;
+
+//     // 7. Gera o token JWT
+//     const token = jwt.sign(
+//       {
+//         id: user.id,
+//         email: user.email,
+//         cpf: user.cpf || null, // Pode ser undefined para usuarios
+//         adm: user.adm || false, // Assume false se não existir
+//         tipo
+//       },
+//       process.env.JWT_SECRET || SECRET,
+//       { expiresIn: '1d' }
+//     );
+
+//     // 8. Retorna resposta de sucesso
 //     return res.json({
+//       success: true,
 //       message: 'Login realizado com sucesso',
-//       solicitante,
-//       token
-//     })
+//       usuario: userSemSenha,
+//       token,
+//       tipo
+//     });
+
 //   } catch (error) {
-//     return res.status(500).json({ error: 'Erro ao autenticar', detalhe: error.message })
+//     console.error('Erro no login:', error);
+//     return res.status(500).json({ 
+//       error: 'Erro no servidor',
+//       message: 'Ocorreu um erro durante o login',
+//       details: process.env.NODE_ENV === 'development' ? error.message : undefined
+//     });
 //   }
-// })
+// });
+
+
 
 router.post('/login', async (req, res) => {
   const { email, senha } = req.body;
 
-  // Validação dos campos de entrada
   if (!email || !senha) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       error: 'Credenciais obrigatórias',
-      message: 'E-mail/CPF e senha são obrigatórios para login' 
+      message: 'E-mail/CPF e senha são obrigatórios para login'
     });
   }
 
   try {
-    // 1. Primeiro tenta encontrar como usuário (apenas por email)
-    let user = await prisma.usuarios.findUnique({
-      where: { 
-        email: email.toLowerCase().trim() 
+    const emailNormalizado = email.trim();
+
+    // 1. Tenta como USUÁRIO (email - case insensitive)
+    let user = await prisma.usuarios.findFirst({
+      where: {
+        email: {
+          equals: emailNormalizado,
+          mode: 'insensitive'
+        }
       },
-      select: { // Adicione esta parte
+      select: {
         id: true,
         nome: true,
         email: true,
@@ -129,73 +207,76 @@ router.post('/login', async (req, res) => {
         empresa: true,
         rule: true,
         setorId: true,
-        adm: true, // Garante que o campo será retornado
+        adm: true,
         createdAt: true,
         updatedAt: true
       }
     });
 
-    console.log(user, 'user')
-
     let tipo = 'usuario';
 
-    // 2. Se não encontrou como usuário, tenta como solicitante (por email ou CPF)
+    // 2. Se não achou, tenta como SOLICITANTE (email ou CPF)
     if (!user) {
       user = await prisma.solicitantes_unicos.findFirst({
         where: {
           OR: [
-            { email: email.toLowerCase().trim() },
-            { cpf: email.replace(/\D/g, '') } // Remove não-números do CPF
+            {
+              email: {
+                equals: emailNormalizado,
+                mode: 'insensitive'
+              }
+            },
+            {
+              cpf: email.replace(/\D/g, '')
+            }
           ]
         }
       });
       tipo = 'solicitante';
     }
 
-    // 3. Se não encontrou em nenhuma tabela
+    // 3. Nenhum usuário encontrado
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'Credenciais inválidas',
-        message: 'Nenhuma conta encontrada com este e-mail/CPF' 
+        message: 'Nenhuma conta encontrada com este e-mail/CPF'
       });
     }
 
-    // 4. Verifica se a senha existe (para casos onde o usuário pode não ter senha)
+    // 4. Verifica se a senha existe
     if (!user.senha) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'Configuração incompleta',
-        message: 'Este usuário não possui senha definida' 
+        message: 'Este usuário não possui senha definida'
       });
     }
 
     // 5. Compara a senha
     const senhaValida = await bcrypt.compare(senha, user.senha);
     if (!senhaValida) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'Credenciais inválidas',
-        message: 'Senha incorreta' 
+        message: 'Senha incorreta'
       });
     }
 
-    console.log(user, 'user aqui')
-
-    // 6. Remove a senha do objeto de usuário antes de retornar
+    // 6. Remove senha do retorno
     const { senha: _, ...userSemSenha } = user;
 
-    // 7. Gera o token JWT
+    // 7. Gera token JWT com segurança
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
-        cpf: user.cpf || null, // Pode ser undefined para usuarios
-        adm: user.adm || false, // Assume false se não existir
+        cpf: tipo === 'solicitante' ? user.cpf : null,
+        adm: user.adm || false,
         tipo
       },
       process.env.JWT_SECRET || SECRET,
       { expiresIn: '1d' }
     );
 
-    // 8. Retorna resposta de sucesso
+    // 8. Retorna sucesso
     return res.json({
       success: true,
       message: 'Login realizado com sucesso',
@@ -206,7 +287,7 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error('Erro no login:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Erro no servidor',
       message: 'Ocorreu um erro durante o login',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
