@@ -251,9 +251,10 @@ router.get('/setores', async (req, res) => {
     res.json(setores)
   } catch (error) {
     console.error('Erro ao buscar setores:', error)
-    res.status(500).json({ error: 'Erro ao buscar setores' })
+    res.status(500).json({ error: 'Erro ao buscar setores', details: error.message })
   }
 })
+
 
 
 
