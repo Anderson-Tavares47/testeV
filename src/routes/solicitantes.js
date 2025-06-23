@@ -570,7 +570,7 @@ router.post('/verificar-identidade', async (req, res) => {
   const cpfLimpo = cpf.replace(/\D/g, '');
 
   try {
-    // Verifica na tabela de usuários
+    // 1. Verificar em usuarios apenas por email
     const usuario = await prisma.usuarios.findFirst({
       where: {
         email: emailBusca
@@ -581,12 +581,12 @@ router.post('/verificar-identidade', async (req, res) => {
       return res.json({ message: 'Identidade confirmada como usuário' });
     }
 
-    // Se não achou, busca em solicitantes_unicos
+    // 2. Verificar em solicitantes_unicos com email + cpf
     const solicitante = await prisma.solicitantes_unicos.findFirst({
       where: {
         email: emailBusca,
         cpf: {
-          contains: cpfLimpo
+          equals: cpfLimpo
         }
       }
     });
@@ -595,12 +595,15 @@ router.post('/verificar-identidade', async (req, res) => {
       return res.json({ message: 'Identidade confirmada como solicitante' });
     }
 
-    return res.status(404).json({ message: 'Nenhum usuário encontrado com esse e-mail e CPF' });
+    return res.status(404).json({ message: 'Nenhuma conta encontrada com essas credenciais' });
   } catch (error) {
     console.error('[VERIFICAR IDENTIDADE] Erro:', error);
-    res.status(500).json({ message: 'Erro ao verificar identidade' });
+    return res.status(500).json({ message: 'Erro ao verificar identidade' });
   }
 });
+
+
+
 
 router.post('/redefinir-senha', async (req, res) => {
   const { email, cpf, novaSenha } = req.body;
