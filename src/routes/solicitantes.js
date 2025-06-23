@@ -624,7 +624,25 @@ router.post('/redefinir-senha', async (req, res) => {
   try {
     const senhaHash = await bcrypt.hash(novaSenha, 10);
 
-    // Tenta redefinir senha de usuário
+    // 1. Tenta redefinir senha de SOLICITANTE com email + CPF
+    const solicitantes = await prisma.solicitantes_unicos.findMany({
+      where: { email: emailBusca }
+    });
+
+    const solicitante = solicitantes.find(s =>
+      s.cpf?.replace(/\D/g, '') === cpfLimpo
+    );
+
+    if (solicitante) {
+      await prisma.solicitantes_unicos.update({
+        where: { id: solicitante.id },
+        data: { senha: senhaHash }
+      });
+
+      return res.json({ message: 'Senha redefinida com sucesso para solicitante' });
+    }
+
+    // 2. Se não encontrou solicitante, tenta como USUÁRIO apenas por email
     const usuario = await prisma.usuarios.findFirst({
       where: {
         email: emailBusca
@@ -640,31 +658,14 @@ router.post('/redefinir-senha', async (req, res) => {
       return res.json({ message: 'Senha redefinida com sucesso para usuário' });
     }
 
-    // Tenta redefinir senha de solicitante
-    const solicitante = await prisma.solicitantes_unicos.findFirst({
-      where: {
-        email: emailBusca,
-        cpf: {
-          contains: cpfLimpo
-        }
-      }
-    });
-
-    if (solicitante) {
-      await prisma.solicitantes_unicos.update({
-        where: { id: solicitante.id },
-        data: { senha: senhaHash }
-      });
-
-      return res.json({ message: 'Senha redefinida com sucesso para solicitante' });
-    }
-
-    return res.status(404).json({ message: 'Nenhum usuário encontrado para redefinir a senha' });
+    // 3. Se não achou nenhum
+    return res.status(404).json({ message: 'Nenhuma conta encontrada com esses dados' });
   } catch (error) {
     console.error('[REDEFINIR SENHA] Erro:', error);
-    res.status(500).json({ message: 'Erro ao redefinir senha' });
+    return res.status(500).json({ message: 'Erro ao redefinir senha' });
   }
 });
+
 
 
 
