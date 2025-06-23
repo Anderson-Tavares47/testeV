@@ -557,4 +557,106 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+
+
+router.post('/verificar-identidade', async (req, res) => {
+  const { email, cpf } = req.body;
+
+  if (!email || !cpf) {
+    return res.status(400).json({ message: 'Email e CPF são obrigatórios' });
+  }
+
+  const emailBusca = email.trim().toLowerCase();
+  const cpfLimpo = cpf.replace(/\D/g, '');
+
+  try {
+    // Verifica na tabela de usuários
+    const usuario = await prisma.usuarios.findFirst({
+      where: {
+        email: emailBusca
+      }
+    });
+
+    if (usuario) {
+      return res.json({ message: 'Identidade confirmada como usuário' });
+    }
+
+    // Se não achou, busca em solicitantes_unicos
+    const solicitante = await prisma.solicitantes_unicos.findFirst({
+      where: {
+        email: emailBusca,
+        cpf: {
+          contains: cpfLimpo
+        }
+      }
+    });
+
+    if (solicitante) {
+      return res.json({ message: 'Identidade confirmada como solicitante' });
+    }
+
+    return res.status(404).json({ message: 'Nenhum usuário encontrado com esse e-mail e CPF' });
+  } catch (error) {
+    console.error('[VERIFICAR IDENTIDADE] Erro:', error);
+    res.status(500).json({ message: 'Erro ao verificar identidade' });
+  }
+});
+
+router.post('/redefinir-senha', async (req, res) => {
+  const { email, cpf, novaSenha } = req.body;
+
+  if (!email || !cpf || !novaSenha) {
+    return res.status(400).json({ message: 'Email, CPF e nova senha são obrigatórios' });
+  }
+
+  const emailBusca = email.trim().toLowerCase();
+  const cpfLimpo = cpf.replace(/\D/g, '');
+
+  try {
+    const senhaHash = await bcrypt.hash(novaSenha, 10);
+
+    // Tenta redefinir senha de usuário
+    const usuario = await prisma.usuarios.findFirst({
+      where: {
+        email: emailBusca
+      }
+    });
+
+    if (usuario) {
+      await prisma.usuarios.update({
+        where: { id: usuario.id },
+        data: { senha: senhaHash }
+      });
+
+      return res.json({ message: 'Senha redefinida com sucesso para usuário' });
+    }
+
+    // Tenta redefinir senha de solicitante
+    const solicitante = await prisma.solicitantes_unicos.findFirst({
+      where: {
+        email: emailBusca,
+        cpf: {
+          contains: cpfLimpo
+        }
+      }
+    });
+
+    if (solicitante) {
+      await prisma.solicitantes_unicos.update({
+        where: { id: solicitante.id },
+        data: { senha: senhaHash }
+      });
+
+      return res.json({ message: 'Senha redefinida com sucesso para solicitante' });
+    }
+
+    return res.status(404).json({ message: 'Nenhum usuário encontrado para redefinir a senha' });
+  } catch (error) {
+    console.error('[REDEFINIR SENHA] Erro:', error);
+    res.status(500).json({ message: 'Erro ao redefinir senha' });
+  }
+});
+
+
+
 module.exports = router;
