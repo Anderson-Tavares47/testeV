@@ -177,6 +177,152 @@ router.post('/register', async (req, res) => {
 // });
 
 
+//novo login
+
+
+// router.post('/login', async (req, res) => {
+//   const { email, senha } = req.body;
+
+//   if (!email || !senha) {
+//     return res.status(400).json({
+//       error: 'Credenciais obrigatórias',
+//       message: 'E-mail/CPF e senha são obrigatórios para login'
+//     });
+//   }
+
+//   try {
+//     const emailBusca = email.trim().toLowerCase();
+//     const isEmail = email.includes('@');
+//     const cpfLimpo = email.replace(/\D/g, '');
+
+//     let tipo = 'usuario';
+//     let user = null;
+
+//     console.log('[LOGIN] Email recebido formatado:', emailBusca);
+
+//     // 1. Buscar como USUÁRIO
+//     const usuarios = await prisma.usuarios.findMany({
+//       where: {
+//         email: {
+//           contains: emailBusca
+//         }
+//       },
+//       select: {
+//         id: true,
+//         nome: true,
+//         email: true,
+//         senha: true,
+//         empresa: true,
+//         rule: true,
+//         setorId: true,
+//         adm: true,
+//         createdAt: true,
+//         updatedAt: true
+//       }
+//     });
+
+//     console.log(`[LOGIN] Usuários encontrados (potenciais): ${usuarios.length}`);
+
+//     user = usuarios.find(u => 
+//       u.email?.trim().toLowerCase() === emailBusca &&
+//       !!u.senha
+//     );
+
+//     if (user) {
+//       console.log('[LOGIN] Usuário encontrado como usuario:', user.email);
+//     }
+
+//     // 2. Buscar como SOLICITANTE, se não achou como usuário
+//     if (!user) {
+//       tipo = 'solicitante';
+
+//       let solicitantesList = [];
+
+//       if (isEmail) {
+//         solicitantesList = await prisma.solicitantes_unicos.findMany({
+//           where: {
+//             email: {
+//               contains: emailBusca
+//             }
+//           }
+//         });
+//       } else {
+//         solicitantesList = await prisma.solicitantes_unicos.findMany({
+//           where: {
+//             cpf: cpfLimpo
+//           }
+//         });
+//       }
+
+//       console.log(`[LOGIN] Solicitantes encontrados (potenciais): ${solicitantesList.length}`);
+
+//       user = solicitantesList.find(s =>
+//         (
+//           s.email?.trim().toLowerCase() === emailBusca ||
+//           s.cpf?.replace(/\D/g, '') === cpfLimpo
+//         ) &&
+//         !!s.senha
+//       );
+
+//       if (user) {
+//         console.log('[LOGIN] Usuário encontrado como solicitante:', user.email || user.cpf);
+//       }
+//     }
+
+//     // 3. Se ainda não encontrou nenhum usuário com senha
+//     if (!user) {
+//       console.log('[LOGIN] Nenhum usuário com senha válida encontrado');
+//       return res.status(401).json({
+//         error: 'Credenciais inválidas',
+//         message: 'E-mail/CPF ou senha incorretos ou conta sem senha definida'
+//       });
+//     }
+
+//     // 4. Valida a senha
+//     const senhaValida = await bcrypt.compare(senha, user.senha);
+//     console.log('[LOGIN] Senha válida?', senhaValida);
+
+//     if (!senhaValida) {
+//       return res.status(401).json({
+//         error: 'Credenciais inválidas',
+//         message: 'Senha incorreta'
+//       });
+//     }
+
+//     // 5. Gera token
+//     const { senha: _, ...userSemSenha } = user;
+//     const token = jwt.sign(
+//       {
+//         id: user.id,
+//         email: user.email,
+//         cpf: tipo === 'solicitante' ? user.cpf : null,
+//         adm: user.adm || false,
+//         tipo
+//       },
+//       process.env.JWT_SECRET || SECRET,
+//       { expiresIn: '1d' }
+//     );
+
+//     console.log('[LOGIN] Login realizado com sucesso! Tipo:', tipo);
+
+//     return res.json({
+//       success: true,
+//       message: 'Login realizado com sucesso',
+//       usuario: userSemSenha,
+//       token,
+//       tipo
+//     });
+
+//   } catch (error) {
+//     console.error('[LOGIN] Erro no login:', error);
+//     return res.status(500).json({
+//       error: 'Erro no servidor',
+//       message: 'Ocorreu um erro durante o login',
+//       details: process.env.NODE_ENV === 'development' ? error.message : undefined
+//     });
+//   }
+// });
+
 
 router.post('/login', async (req, res) => {
   const { email, senha } = req.body;
@@ -191,12 +337,12 @@ router.post('/login', async (req, res) => {
   try {
     const emailBusca = email.trim().toLowerCase();
     const isEmail = email.includes('@');
-    const cpfLimpo = email.replace(/\D/g, '');
+    const cpfLimpo = email.replace(/\D/g, ''); // Remove pontuação
 
     let tipo = 'usuario';
     let user = null;
 
-    console.log('[LOGIN] Email recebido formatado:', emailBusca);
+    console.log('[LOGIN] Valor recebido:', email);
 
     // 1. Buscar como USUÁRIO
     const usuarios = await prisma.usuarios.findMany({
@@ -219,41 +365,33 @@ router.post('/login', async (req, res) => {
       }
     });
 
-    console.log(`[LOGIN] Usuários encontrados (potenciais): ${usuarios.length}`);
-
-    user = usuarios.find(u => 
+    user = usuarios.find(u =>
       u.email?.trim().toLowerCase() === emailBusca &&
       !!u.senha
     );
 
     if (user) {
-      console.log('[LOGIN] Usuário encontrado como usuario:', user.email);
+      console.log('[LOGIN] Usuário autenticado como USUÁRIO:', user.email);
     }
 
-    // 2. Buscar como SOLICITANTE, se não achou como usuário
+    // 2. Se não achou como usuário, busca como SOLICITANTE
     if (!user) {
       tipo = 'solicitante';
 
-      let solicitantesList = [];
+      const solicitantesList = await prisma.solicitantes_unicos.findMany({
+        where: {
+          OR: [
+            { email: emailBusca },
+            { cpf: {
+              contains: cpfLimpo
+            } }
+          ]
+        }
+      });
 
-      if (isEmail) {
-        solicitantesList = await prisma.solicitantes_unicos.findMany({
-          where: {
-            email: {
-              contains: emailBusca
-            }
-          }
-        });
-      } else {
-        solicitantesList = await prisma.solicitantes_unicos.findMany({
-          where: {
-            cpf: cpfLimpo
-          }
-        });
-      }
+      console.log(`[LOGIN] Solicitantes encontrados: ${solicitantesList.length}`);
 
-      console.log(`[LOGIN] Solicitantes encontrados (potenciais): ${solicitantesList.length}`);
-
+      // Comparar CPF limpando pontuação dos que vieram do banco
       user = solicitantesList.find(s =>
         (
           s.email?.trim().toLowerCase() === emailBusca ||
@@ -263,13 +401,13 @@ router.post('/login', async (req, res) => {
       );
 
       if (user) {
-        console.log('[LOGIN] Usuário encontrado como solicitante:', user.email || user.cpf);
+        console.log('[LOGIN] Usuário autenticado como SOLICITANTE:', user.email || user.cpf);
       }
     }
 
-    // 3. Se ainda não encontrou nenhum usuário com senha
+    // 3. Se ainda não achou
     if (!user) {
-      console.log('[LOGIN] Nenhum usuário com senha válida encontrado');
+      console.log('[LOGIN] Nenhum usuário encontrado com senha válida');
       return res.status(401).json({
         error: 'Credenciais inválidas',
         message: 'E-mail/CPF ou senha incorretos ou conta sem senha definida'
@@ -278,8 +416,6 @@ router.post('/login', async (req, res) => {
 
     // 4. Valida a senha
     const senhaValida = await bcrypt.compare(senha, user.senha);
-    console.log('[LOGIN] Senha válida?', senhaValida);
-
     if (!senhaValida) {
       return res.status(401).json({
         error: 'Credenciais inválidas',
@@ -287,21 +423,19 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // 5. Gera token
+    // 5. Gera token JWT
     const { senha: _, ...userSemSenha } = user;
     const token = jwt.sign(
       {
         id: user.id,
-        email: user.email,
+        email: user.email || null,
         cpf: tipo === 'solicitante' ? user.cpf : null,
         adm: user.adm || false,
         tipo
       },
-      process.env.JWT_SECRET || SECRET,
+      process.env.JWT_SECRET || 'PjTeste',
       { expiresIn: '1d' }
     );
-
-    console.log('[LOGIN] Login realizado com sucesso! Tipo:', tipo);
 
     return res.json({
       success: true,
