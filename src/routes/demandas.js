@@ -132,6 +132,22 @@ router.get('/', async (req, res) => {
 });
 
 
+// ✅ Coloque antes do /:id
+router.get('/setores', async (req, res) => {
+  try {
+    const setores = await prisma.setores.findMany({
+      orderBy: { setor: 'asc' },
+      select: { id: true, setor: true }
+    });
+    res.json(setores);
+  } catch (error) {
+    console.error('Erro ao buscar setores:', error);
+    res.status(500).json({ error: 'Erro ao buscar setores', details: error.message });
+  }
+});
+
+
+
 
 // Buscar por ID
 router.get('/:id', async (req, res) => {
@@ -236,26 +252,6 @@ router.delete('/:id', async (req, res) => {
   await prisma.demandas.delete({ where: { id: parseInt(req.params.id) } });
   res.json({ deleted: true });
 });
-
-
-// routes/setores.js
-router.get('/setores', async (req, res) => {
-  try {
-    console.log(req, res, 'antes de fazer a busca')
-    const setores = await prisma.setores.findMany({
-      orderBy: { setor: 'asc' },
-      select: {
-        id: true,
-        setor: true
-      }
-    })
-     console.log(setores, 'depois de fazer a busca, resposta da busca')
-    res.json(setores)
-  } catch (error) {
-    console.error('Erro ao buscar setores:', error)
-    res.status(500).json({ error: 'Erro ao buscar setores', details: error.message })
-  }
-})
 
 
 
