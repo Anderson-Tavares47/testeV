@@ -413,11 +413,11 @@ router.post('/login', async (req, res) => {
     console.log('[LOGIN] Senha válida?', senhaValida);
 
     if (!senhaValida) {
-      return res.status(401).json({
-        error: 'Credenciais inválidas',
-        message: 'Senha incorreta'
-      });
-    }
+  return res.status(401).json({
+    error: true, // Adicione esta linha
+    message: 'Senha incorreta' // Mantenha esta
+  });
+}
 
     // 5. Gera token JWT
     const { senha: _, ...userSemSenha } = user;
