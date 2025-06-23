@@ -334,10 +334,14 @@ router.post('/login', async (req, res) => {
     });
   }
 
+  console.log(email, senha, "email e senha ou cpf")
+
   try {
     const emailBusca = email.trim().toLowerCase();
     const isEmail = email.includes('@');
     const cpfLimpo = email.replace(/\D/g, ''); // Remove pontuação
+
+     console.log(emailBusca, isEmail, cpfLimpo, "email e senha ou cpf formatados no try catch")
 
     let tipo = 'usuario';
     let user = null;
