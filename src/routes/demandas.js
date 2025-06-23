@@ -237,4 +237,19 @@ router.delete('/:id', async (req, res) => {
   res.json({ deleted: true });
 });
 
+
+// routes/setores.js
+router.get('/setores', async (req, res) => {
+  try {
+    const setores = await prisma.setores.findMany({
+      orderBy: { nome: 'asc' } // ou 'id' se preferir
+    })
+    res.json(setores)
+  } catch (error) {
+    console.error('Erro ao buscar setores:', error)
+    res.status(500).json({ error: 'Erro ao buscar setores' })
+  }
+})
+
+
 module.exports = router;
