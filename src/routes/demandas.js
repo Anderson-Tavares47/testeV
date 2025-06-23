@@ -241,6 +241,7 @@ router.delete('/:id', async (req, res) => {
 // routes/setores.js
 router.get('/setores', async (req, res) => {
   try {
+    console.log(req, res, 'antes de fazer a busca')
     const setores = await prisma.setores.findMany({
       orderBy: { setor: 'asc' },
       select: {
@@ -248,6 +249,7 @@ router.get('/setores', async (req, res) => {
         setor: true
       }
     })
+     console.log(setores, 'depois de fazer a busca, resposta da busca')
     res.json(setores)
   } catch (error) {
     console.error('Erro ao buscar setores:', error)
