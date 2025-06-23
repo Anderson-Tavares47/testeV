@@ -581,19 +581,20 @@ router.post('/verificar-identidade', async (req, res) => {
       return res.json({ message: 'Identidade confirmada como usuário' });
     }
 
-    console.log(emailBusca, cpfLimpo, 'formataddos email e cpf apos a busca de usuario')
+    console.log(emailBusca, cpfLimpo, 'formatados email e cpf após a busca de usuário');
 
-    // 2. Verificar em solicitantes_unicos com email + cpf
-    const solicitante = await prisma.solicitantes_unicos.findFirst({
+    // 2. Verificar solicitantes_unicos por email + CPF (removendo pontuação manualmente)
+    const solicitantesList = await prisma.solicitantes_unicos.findMany({
       where: {
-        email: emailBusca,
-        cpf: {
-          equals: cpfLimpo
-        }
+        email: emailBusca
       }
     });
 
-     console.log(solicitante, 'solicitante apos a busca')
+    const solicitante = solicitantesList.find(s =>
+      s.cpf?.replace(/\D/g, '') === cpfLimpo
+    );
+
+    console.log(solicitante, 'solicitante após a busca');
 
     if (solicitante) {
       return res.json({ message: 'Identidade confirmada como solicitante' });
@@ -605,6 +606,7 @@ router.post('/verificar-identidade', async (req, res) => {
     return res.status(500).json({ message: 'Erro ao verificar identidade' });
   }
 });
+
 
 
 
