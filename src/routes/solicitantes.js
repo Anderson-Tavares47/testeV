@@ -334,14 +334,14 @@ router.post('/login', async (req, res) => {
     });
   }
 
-  console.log(email, senha, "email e senha ou cpf")
+  console.log(email, senha, "email e senha ou cpf recebidos");
 
   try {
     const emailBusca = email.trim().toLowerCase();
     const isEmail = email.includes('@');
-    const cpfLimpo = email.replace(/\D/g, ''); // Remove pontuação
+    const cpfLimpo = email.replace(/\D/g, '');
 
-     console.log(emailBusca, isEmail, cpfLimpo, "email e senha ou cpf formatados no try catch")
+    console.log(emailBusca, isEmail, cpfLimpo, "email e cpf formatados");
 
     let tipo = 'usuario';
     let user = null;
@@ -382,20 +382,10 @@ router.post('/login', async (req, res) => {
     if (!user) {
       tipo = 'solicitante';
 
-      const solicitantesList = await prisma.solicitantes_unicos.findMany({
-        where: {
-          OR: [
-            { email: emailBusca },
-            { cpf: {
-              contains: cpfLimpo
-            } }
-          ]
-        }
-      });
+      const solicitantesList = await prisma.solicitantes_unicos.findMany();
 
       console.log(`[LOGIN] Solicitantes encontrados: ${solicitantesList.length}`);
 
-      // Comparar CPF limpando pontuação dos que vieram do banco
       user = solicitantesList.find(s =>
         (
           s.email?.trim().toLowerCase() === emailBusca ||
@@ -409,7 +399,7 @@ router.post('/login', async (req, res) => {
       }
     }
 
-    // 3. Se ainda não achou
+    // 3. Se ainda não achou ninguém
     if (!user) {
       console.log('[LOGIN] Nenhum usuário encontrado com senha válida');
       return res.status(401).json({
@@ -420,6 +410,8 @@ router.post('/login', async (req, res) => {
 
     // 4. Valida a senha
     const senhaValida = await bcrypt.compare(senha, user.senha);
+    console.log('[LOGIN] Senha válida?', senhaValida);
+
     if (!senhaValida) {
       return res.status(401).json({
         error: 'Credenciais inválidas',
@@ -440,6 +432,8 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET || 'PjTeste',
       { expiresIn: '1d' }
     );
+
+    console.log('[LOGIN] Login realizado com sucesso! Tipo:', tipo);
 
     return res.json({
       success: true,
