@@ -581,6 +581,8 @@ router.post('/verificar-identidade', async (req, res) => {
       return res.json({ message: 'Identidade confirmada como usuário' });
     }
 
+    console.log(emailBusca, cpfLimpo, 'formataddos email e cpf apos a busca de usuario')
+
     // 2. Verificar em solicitantes_unicos com email + cpf
     const solicitante = await prisma.solicitantes_unicos.findFirst({
       where: {
@@ -590,6 +592,8 @@ router.post('/verificar-identidade', async (req, res) => {
         }
       }
     });
+
+     console.log(solicitante, 'solicitante apos a busca')
 
     if (solicitante) {
       return res.json({ message: 'Identidade confirmada como solicitante' });
