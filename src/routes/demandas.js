@@ -242,7 +242,7 @@ router.delete('/:id', async (req, res) => {
 router.get('/setores', async (req, res) => {
   try {
     const setores = await prisma.setores.findMany({
-      orderBy: { nome: 'asc' } // ou 'id' se preferir
+      orderBy: { setor: 'asc' } // ou 'id' se preferir
     })
     res.json(setores)
   } catch (error) {
