@@ -77,12 +77,18 @@ router.post('/register', async (req, res) => {
   console.log('📌 CPF normalizado:', cpfLimpo);
 
   try {
-    // Verifica se já existe um solicitante_unico com esse CPF limpo
-    const existenteUnico = await prisma.solicitantes_unicos.findFirst({
-      where: { cpf: cpfLimpo }
+    // Busca todos os registros e compara os CPFs já normalizados
+    const candidatos = await prisma.solicitantes_unicos.findMany({
+      select: { id: true, cpf: true, senha: true }
     });
 
-    console.log('🔍 Resultado da busca em solicitantes_unicos:', existenteUnico);
+    const existenteUnico = candidatos.find(entry => {
+      if (!entry.cpf) return false;
+      const cpfBanco = entry.cpf.replace(/\D/g, '');
+      return cpfBanco === cpfLimpo;
+    });
+
+    console.log('🔍 Resultado da busca (cpf comparado com e sem pontuação):', existenteUnico);
 
     const senhaHash = await bcrypt.hash(senha, 10);
     let solicitanteUnicoId;
@@ -94,7 +100,7 @@ router.post('/register', async (req, res) => {
           where: { id: existenteUnico.id },
           data: {
             senha: senhaHash,
-            cpf: cpfLimpo // garante que CPF fica limpo no banco
+            cpf: cpfLimpo // opcional: atualizar o CPF para o formato limpo no banco
           }
         });
         solicitanteUnicoId = existenteUnico.id;
@@ -117,7 +123,6 @@ router.post('/register', async (req, res) => {
       solicitanteUnicoId = novoUnico.id;
     }
 
-    // Verifica se já existe na tabela solicitantes
     const existenteSolicitante = await prisma.solicitantes.findUnique({
       where: { id: solicitanteUnicoId }
     });
@@ -133,7 +138,6 @@ router.post('/register', async (req, res) => {
       });
 
       console.log('✅ Novo solicitante criado:', novoSolicitante);
-
       return res.json({
         message: 'Solicitante registrado com sucesso',
         solicitante: novoSolicitante
@@ -154,6 +158,7 @@ router.post('/register', async (req, res) => {
     });
   }
 });
+
 
 
 
