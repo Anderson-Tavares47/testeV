@@ -73,9 +73,14 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'CPF e senha são obrigatórios' });
   }
 
+  const cpfLimpo = cpf.replace(/\D/g, ''); // remove pontos, traços, etc.
+  console.log('🔍 CPF normalizado:', cpfLimpo);
+
   try {
     const existenteUnico = await prisma.solicitantes_unicos.findFirst({
-      where: { cpf },
+      where: {
+        cpf: cpfLimpo
+      }
     });
 
     console.log('🔍 Resultado da busca em solicitantes_unicos:', existenteUnico);
@@ -84,8 +89,7 @@ router.post('/register', async (req, res) => {
     let solicitanteUnicoId;
 
     if (existenteUnico) {
-      console.log(existenteUnico.senha, 'aqui a senha que foi recuperado do user')
-     if (!existenteUnico.senha || existenteUnico.senha.trim() === '') {
+      if (!existenteUnico.senha || existenteUnico.senha.trim() === '') {
         console.log('✏️ Atualizando senha do usuário existente com ID:', existenteUnico.id);
         await prisma.solicitantes_unicos.update({
           where: { id: existenteUnico.id },
@@ -102,16 +106,15 @@ router.post('/register', async (req, res) => {
       console.log('🆕 Criando novo registro em solicitantes_unicos...');
       const novoUnico = await prisma.solicitantes_unicos.create({
         data: {
-          cpf,
+          cpf: cpfLimpo,
           senha: senhaHash,
           ...dados
         }
       });
-      console.log('✅ Novo registro em solicitantes_unicos criado:', novoUnico);
+      console.log('✅ Novo registro criado em solicitantes_unicos:', novoUnico);
       solicitanteUnicoId = novoUnico.id;
     }
 
-    console.log('🔎 Verificando se já existe na tabela solicitantes com ID:', solicitanteUnicoId);
     const existenteSolicitante = await prisma.solicitantes.findUnique({
       where: { id: solicitanteUnicoId }
     });
@@ -121,19 +124,18 @@ router.post('/register', async (req, res) => {
       const novoSolicitante = await prisma.solicitantes.create({
         data: {
           id: solicitanteUnicoId,
-          cpf,
+          cpf: cpfLimpo,
           ...dados
         }
       });
 
       console.log('✅ Novo solicitante criado:', novoSolicitante);
-
       return res.json({
         message: 'Solicitante registrado com sucesso',
         solicitante: novoSolicitante
       });
     } else {
-      console.log('ℹ️ Solicitante já estava registrado:', existenteSolicitante);
+      console.log('ℹ️ Solicitante já registrado:', existenteSolicitante);
       return res.json({
         message: 'Solicitante já registrado anteriormente',
         solicitante: existenteSolicitante
@@ -145,6 +147,7 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ error: 'Erro ao registrar', detalhe: error.message });
   }
 });
+
 
 
 
