@@ -13,6 +13,56 @@ const jwt = require('jsonwebtoken')
 const SECRET = process.env.JWT_SECRET || 'PjTeste'
 
 // Registrar novo solicitante
+// router.post('/register', async (req, res) => {
+//   const { cpf, senha, ...dados } = req.body;
+
+//   if (!cpf || !senha) {
+//     return res.status(400).json({ error: 'CPF e senha são obrigatórios' });
+//   }
+
+//   try {
+//     const existenteUnico = await prisma.solicitantes_unicos.findFirst({ where: { cpf } });
+//     const senhaHash = await bcrypt.hash(senha, saltRounds);
+
+//     let solicitanteUnicoId;
+
+//     if (existenteUnico) {
+//       await prisma.solicitantes_unicos.update({
+//         where: { id: existenteUnico.id },
+//         data: { senha: senhaHash }
+//       });
+//       solicitanteUnicoId = existenteUnico.id;
+//     } else {
+//       const novoUnico = await prisma.solicitantes_unicos.create({
+//         data: {
+//           cpf,
+//           senha: senhaHash,
+//           ...dados
+//         }
+//       });
+//       solicitanteUnicoId = novoUnico.id;
+//     }
+
+//     // Cria na tabela de solicitantes com o mesmo ID do solicitantes_unicos
+//     const novoSolicitante = await prisma.solicitantes.create({
+//       data: {
+//         id: solicitanteUnicoId, // mesmo id da tabela de unicos
+//         cpf,
+//         ...dados
+//       }
+//     });
+
+//     return res.json({
+//       message: 'Solicitante registrado com sucesso',
+//       solicitante: novoSolicitante
+//     });
+
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: 'Erro ao registrar/login', detalhe: error.message });
+//   }
+// });
+
 router.post('/register', async (req, res) => {
   const { cpf, senha, ...dados } = req.body;
 
@@ -21,18 +71,29 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    const existenteUnico = await prisma.solicitantes_unicos.findFirst({ where: { cpf } });
-    const senhaHash = await bcrypt.hash(senha, saltRounds);
+    const existenteUnico = await prisma.solicitantes_unicos.findFirst({
+      where: { cpf },
+    });
 
+    const senhaHash = await bcrypt.hash(senha, 10);
     let solicitanteUnicoId;
 
     if (existenteUnico) {
-      await prisma.solicitantes_unicos.update({
-        where: { id: existenteUnico.id },
-        data: { senha: senhaHash }
-      });
-      solicitanteUnicoId = existenteUnico.id;
+      if (existenteUnico.senha === null) {
+        // Atualiza a senha no registro existente
+        await prisma.solicitantes_unicos.update({
+          where: { id: existenteUnico.id },
+          data: { senha: senhaHash }
+        });
+        solicitanteUnicoId = existenteUnico.id;
+      } else {
+        // CPF já está registrado com senha
+        return res.status(400).json({
+          error: 'Já existe um usuário com este CPF e senha definida. Faça login ou recupere sua senha.'
+        });
+      }
     } else {
+      // CPF não existe, cria novo registro
       const novoUnico = await prisma.solicitantes_unicos.create({
         data: {
           cpf,
@@ -43,25 +104,37 @@ router.post('/register', async (req, res) => {
       solicitanteUnicoId = novoUnico.id;
     }
 
-    // Cria na tabela de solicitantes com o mesmo ID do solicitantes_unicos
-    const novoSolicitante = await prisma.solicitantes.create({
-      data: {
-        id: solicitanteUnicoId, // mesmo id da tabela de unicos
-        cpf,
-        ...dados
-      }
+    // Verifica se já existe na tabela de solicitantes
+    const existenteSolicitante = await prisma.solicitantes.findUnique({
+      where: { id: solicitanteUnicoId }
     });
 
-    return res.json({
-      message: 'Solicitante registrado com sucesso',
-      solicitante: novoSolicitante
-    });
+    if (!existenteSolicitante) {
+      const novoSolicitante = await prisma.solicitantes.create({
+        data: {
+          id: solicitanteUnicoId,
+          cpf,
+          ...dados
+        }
+      });
+
+      return res.json({
+        message: 'Solicitante registrado com sucesso',
+        solicitante: novoSolicitante
+      });
+    } else {
+      return res.json({
+        message: 'Solicitante já registrado anteriormente',
+        solicitante: existenteSolicitante
+      });
+    }
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Erro ao registrar/login', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao registrar', detalhe: error.message });
   }
 });
+
 
 
 
