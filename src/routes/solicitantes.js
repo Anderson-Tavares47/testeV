@@ -80,20 +80,17 @@ router.post('/register', async (req, res) => {
 
     if (existenteUnico) {
       if (existenteUnico.senha === null) {
-        // Atualiza a senha no registro existente
         await prisma.solicitantes_unicos.update({
           where: { id: existenteUnico.id },
           data: { senha: senhaHash }
         });
         solicitanteUnicoId = existenteUnico.id;
       } else {
-        // CPF já está registrado com senha
         return res.status(400).json({
           error: 'Já existe um usuário com este CPF e senha definida. Faça login ou recupere sua senha.'
         });
       }
     } else {
-      // CPF não existe, cria novo registro
       const novoUnico = await prisma.solicitantes_unicos.create({
         data: {
           cpf,
@@ -104,7 +101,7 @@ router.post('/register', async (req, res) => {
       solicitanteUnicoId = novoUnico.id;
     }
 
-    // Verifica se já existe na tabela de solicitantes
+    // ✅ Checa se já existe o solicitante antes de tentar criar
     const existenteSolicitante = await prisma.solicitantes.findUnique({
       where: { id: solicitanteUnicoId }
     });
@@ -134,6 +131,7 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ error: 'Erro ao registrar', detalhe: error.message });
   }
 });
+
 
 
 
