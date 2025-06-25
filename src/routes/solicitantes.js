@@ -66,21 +66,20 @@ const SECRET = process.env.JWT_SECRET || 'PjTeste'
 router.post('/register', async (req, res) => {
   const { cpf, senha, ...dados } = req.body;
 
-  console.log('🔵 Requisição recebida com dados:', { cpf, senha, ...dados });
+  console.log('🔵 Requisição recebida:', { cpf, senha, ...dados });
 
   if (!cpf || !senha) {
-    console.log('❌ CPF ou senha não preenchidos');
+    console.log('❌ CPF ou senha não informados');
     return res.status(400).json({ error: 'CPF e senha são obrigatórios' });
   }
 
-  const cpfLimpo = cpf.replace(/\D/g, ''); // remove pontos, traços, etc.
-  console.log('🔍 CPF normalizado:', cpfLimpo);
+  const cpfLimpo = cpf.replace(/\D/g, '');
+  console.log('📌 CPF normalizado:', cpfLimpo);
 
   try {
+    // Verifica se já existe um solicitante_unico com esse CPF limpo
     const existenteUnico = await prisma.solicitantes_unicos.findFirst({
-      where: {
-        cpf: cpfLimpo
-      }
+      where: { cpf: cpfLimpo }
     });
 
     console.log('🔍 Resultado da busca em solicitantes_unicos:', existenteUnico);
@@ -90,14 +89,17 @@ router.post('/register', async (req, res) => {
 
     if (existenteUnico) {
       if (!existenteUnico.senha || existenteUnico.senha.trim() === '') {
-        console.log('✏️ Atualizando senha do usuário existente com ID:', existenteUnico.id);
+        console.log('✏️ Atualizando senha do solicitante existente (ID:', existenteUnico.id, ')');
         await prisma.solicitantes_unicos.update({
           where: { id: existenteUnico.id },
-          data: { senha: senhaHash }
+          data: {
+            senha: senhaHash,
+            cpf: cpfLimpo // garante que CPF fica limpo no banco
+          }
         });
         solicitanteUnicoId = existenteUnico.id;
       } else {
-        console.log('⚠️ Usuário já possui senha definida. Bloqueando novo registro.');
+        console.log('⚠️ CPF já registrado com senha. Bloqueando novo cadastro.');
         return res.status(400).json({
           error: 'Já existe um usuário com este CPF e senha definida. Faça login ou recupere sua senha.'
         });
@@ -111,10 +113,11 @@ router.post('/register', async (req, res) => {
           ...dados
         }
       });
-      console.log('✅ Novo registro criado em solicitantes_unicos:', novoUnico);
+      console.log('✅ Registro criado:', novoUnico);
       solicitanteUnicoId = novoUnico.id;
     }
 
+    // Verifica se já existe na tabela solicitantes
     const existenteSolicitante = await prisma.solicitantes.findUnique({
       where: { id: solicitanteUnicoId }
     });
@@ -130,12 +133,13 @@ router.post('/register', async (req, res) => {
       });
 
       console.log('✅ Novo solicitante criado:', novoSolicitante);
+
       return res.json({
         message: 'Solicitante registrado com sucesso',
         solicitante: novoSolicitante
       });
     } else {
-      console.log('ℹ️ Solicitante já registrado:', existenteSolicitante);
+      console.log('ℹ️ Solicitante já estava registrado anteriormente:', existenteSolicitante);
       return res.json({
         message: 'Solicitante já registrado anteriormente',
         solicitante: existenteSolicitante
@@ -144,9 +148,13 @@ router.post('/register', async (req, res) => {
 
   } catch (error) {
     console.error('🔥 ERRO AO REGISTRAR:', error);
-    res.status(500).json({ error: 'Erro ao registrar', detalhe: error.message });
+    return res.status(500).json({
+      error: 'Erro ao registrar',
+      detalhe: error.message
+    });
   }
 });
+
 
 
 
