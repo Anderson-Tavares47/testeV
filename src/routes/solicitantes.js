@@ -84,7 +84,7 @@ router.post('/register', async (req, res) => {
     let solicitanteUnicoId;
 
     if (existenteUnico) {
-      if (existenteUnico.senha === null) {
+     if (!existenteUnico.senha || existenteUnico.senha.trim() === '') {
         console.log('✏️ Atualizando senha do usuário existente com ID:', existenteUnico.id);
         await prisma.solicitantes_unicos.update({
           where: { id: existenteUnico.id },
