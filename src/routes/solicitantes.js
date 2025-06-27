@@ -529,6 +529,7 @@ router.post('/login', async (req, res) => {
         email: user.email || null,
         cpf: tipo === 'solicitante' ? user.cpf : null,
         adm: user.adm || false,
+        nome: user.nome || user.nomeCompleto : null,
         tipo
       },
       process.env.JWT_SECRET || 'PjTeste',
